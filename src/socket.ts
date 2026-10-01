@@ -22,9 +22,23 @@ export type OrdersPatchEvent = {
 };
 
 export function createSocketServer(httpServer: HttpServer) {
+  const allowlist = config.corsOrigin.split(",").map((value) => value.trim()).filter(Boolean);
   const io = new Server(httpServer, {
     cors: {
-      origin: config.corsOrigin.split(",").map((value) => value.trim()),
+      origin(origin, callback) {
+        if (!origin || allowlist.includes(origin) || allowlist.includes("*")) {
+          callback(null, true);
+          return;
+        }
+        if (
+          !config.isProd &&
+          /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(origin)
+        ) {
+          callback(null, true);
+          return;
+        }
+        callback(new Error(`CORS blocked for origin: ${origin}`), false);
+      },
       methods: ["GET", "POST", "PATCH", "DELETE"],
       credentials: true,
     },

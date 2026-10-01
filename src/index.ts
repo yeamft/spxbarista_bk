@@ -34,6 +34,14 @@ async function main() {
           callback(null, true);
           return;
         }
+        // Dev convenience: allow any localhost / 127.0.0.1 port (Vite often shifts ports).
+        if (
+          !config.isProd &&
+          /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(origin)
+        ) {
+          callback(null, true);
+          return;
+        }
         callback(new Error(`CORS blocked for origin: ${origin}`));
       },
       credentials: true,

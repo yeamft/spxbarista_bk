@@ -42,9 +42,6 @@ const userSchema = new Schema(
   { timestamps: true },
 );
 
-userSchema.index({ pin: 1 }, { unique: true, sparse: true });
-userSchema.index({ username: 1 }, { unique: true, sparse: true });
-
 userSchema.methods.verifyPassword = async function verifyPassword(password: string) {
   return bcrypt.compare(password, this.passwordHash);
 };
