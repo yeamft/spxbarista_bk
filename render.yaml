@@ -1,0 +1,20 @@
+# Render Blueprint — Web Service for Express + Socket.IO
+# https://render.com/docs/blueprint-spec
+services:
+  - type: web
+    name: spxbarista-bk
+    runtime: node
+    plan: free
+    region: oregon
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: MONGODB_URI
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
+      - key: CORS_ORIGIN
+        sync: false

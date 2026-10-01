@@ -16,10 +16,22 @@ function required(name: string, fallback?: string) {
 }
 
 const nodeEnv = process.env.NODE_ENV || "development";
-const jwtSecret = required("JWT_SECRET", "dev-change-me-ethioplate-coffee");
+const isProd = nodeEnv === "production";
 
-if (nodeEnv === "production" && jwtSecret.startsWith("dev-")) {
-  throw new Error("JWT_SECRET must be set to a strong secret in production");
+const jwtSecret = isProd
+  ? required("JWT_SECRET")
+  : required("JWT_SECRET", "dev-change-me-ethioplate-coffee");
+
+if (
+  isProd &&
+  (jwtSecret.startsWith("dev-") ||
+    jwtSecret === "dev-change-me-ethioplate-coffee" ||
+    jwtSecret.length < 24)
+) {
+  throw new Error(
+    "JWT_SECRET must be a strong secret in production (min 24 chars, not a dev-* value). " +
+      "Set it in Render → Environment → JWT_SECRET, then redeploy.",
+  );
 }
 
 export const config = {
@@ -28,5 +40,5 @@ export const config = {
   jwtSecret,
   corsOrigin: process.env.CORS_ORIGIN || "http://localhost:3000",
   nodeEnv,
-  isProd: nodeEnv === "production",
+  isProd,
 };
