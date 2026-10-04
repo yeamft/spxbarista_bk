@@ -143,10 +143,17 @@ export function createGuestOrdersRouter(io: SocketServer) {
       sentAt,
       items: stationLines.map((line) => ({
         id: line.id,
+        menuItemId: line.menuItemId,
         name: line.name,
+        name_en: line.name_en,
+        name_am: line.name_am,
         qty: line.qty,
+        unitPrice: line.unitPrice,
+        station: line.station || station,
+        finalStation: line.station || station,
         note: line.note,
         unitLabel: line.unitLabel,
+        done: false,
       })),
     }));
 
