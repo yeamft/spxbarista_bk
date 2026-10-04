@@ -12,6 +12,7 @@ import { createBaristaRouter } from "./routes/barista.js";
 import { staffRouter } from "./routes/staff.js";
 import { moduleRecordsRouter } from "./routes/module-records.js";
 import { settingsRouter } from "./routes/settings.js";
+import { createGuestOrdersRouter } from "./routes/guest-orders.js";
 import { createSocketServer } from "./socket.js";
 
 async function main() {
@@ -64,6 +65,7 @@ async function main() {
   app.use("/api/staff", staffRouter);
   app.use("/api/barista", createBaristaRouter(io));
   app.use("/api/orders", createOrdersRouter(io));
+  app.use("/api/guest-orders", createGuestOrdersRouter(io));
   app.use("/api/stations", createStationsRouter(io));
   app.use("/api/menu", createMenuRouter(io));
   app.use("/api/categories", createCategoriesRouter(io));

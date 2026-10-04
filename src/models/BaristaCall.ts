@@ -6,7 +6,7 @@ const baristaCallSchema = new Schema(
     requestedBy: { type: String, required: true, trim: true },
     requestedByRole: { type: String, default: "" },
     baristaName: { type: String, default: "" },
-    location: { type: String, default: "Service Desk" },
+    location: { type: String, default: "Cafe" },
     note: { type: String, default: "" },
     status: {
       type: String,
@@ -33,7 +33,7 @@ export function toBaristaCallDto(doc: BaristaCallDoc) {
     requestedBy: doc.requestedBy,
     requestedByRole: doc.requestedByRole || undefined,
     baristaName: doc.baristaName || "",
-    location: doc.location || "Service Desk",
+    location: doc.location || "Cafe",
     note: doc.note || "",
     status: doc.status as "open" | "acknowledged" | "done",
     createdAt: doc.createdAtIso,

@@ -149,7 +149,7 @@ export function createBaristaRouter(io: SocketServer) {
       requestedBy: parsed.data.requestedBy?.trim() || req.user?.name || "Guest",
       requestedByRole: parsed.data.requestedByRole || req.user?.role || "",
       baristaName: parsed.data.baristaName?.trim() || "",
-      location: parsed.data.location?.trim() || "Service Desk",
+      location: parsed.data.location?.trim() || "Cafe",
       note: parsed.data.note?.trim() || "",
       status: "open",
       createdAtIso: stamp,
