@@ -88,10 +88,46 @@ function emitOrderRealtime(
 export function createOrdersRouter(io: SocketServer) {
   const router = Router();
 
-  router.get("/", requireAuth, async (_req, res) => {
-    const orders = await Order.find().sort({ updatedAt: -1 }).limit(300).lean();
+  router.get("/", requireAuth, async (req, res) => {
+    const pageRaw = req.query.page;
+    const pageSizeRaw = req.query.pageSize ?? req.query.limit;
+    const paginate = pageRaw != null || pageSizeRaw != null;
+    const page = Math.max(1, Number(pageRaw) || 1);
+    const pageSize = Math.min(100, Math.max(1, Number(pageSizeRaw) || 50));
+    const status =
+      typeof req.query.status === "string" && req.query.status.trim() && req.query.status !== "All"
+        ? req.query.status.trim()
+        : "";
+
+    const filter: Record<string, unknown> = {};
+    if (status) filter.status = status;
+
+    const total = await Order.countDocuments(filter);
+
+    if (!paginate) {
+      // Hydrate / sync path: recent window (not a UI page).
+      const orders = await Order.find(filter).sort({ updatedAt: -1 }).limit(300).lean();
+      res.json({
+        orders: orders.map((order) => orderFromDoc(order)),
+        total,
+        page: 1,
+        pageSize: orders.length,
+      });
+      return;
+    }
+
+    const skip = (page - 1) * pageSize;
+    const orders = await Order.find(filter)
+      .sort({ updatedAt: -1 })
+      .skip(skip)
+      .limit(pageSize)
+      .lean();
+
     res.json({
       orders: orders.map((order) => orderFromDoc(order)),
+      total,
+      page,
+      pageSize,
     });
   });
 
