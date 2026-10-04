@@ -36,7 +36,7 @@ export function createStationsRouter(io: SocketServer) {
   router.post(
     "/",
     requireAuth,
-    requireRoles("Administrator", "Branch Manager", "Supervisor"),
+    requireRoles("Administrator", "Manager", "Branch Manager", "Supervisor"),
     async (req: AuthedRequest, res) => {
       const parsed = z
         .object({
@@ -75,7 +75,7 @@ export function createStationsRouter(io: SocketServer) {
   router.patch(
     "/:id",
     requireAuth,
-    requireRoles("Administrator", "Branch Manager", "Supervisor"),
+    requireRoles("Administrator", "Manager", "Branch Manager", "Supervisor"),
     async (req: AuthedRequest, res) => {
       const parsed = z
         .object({
@@ -105,7 +105,7 @@ export function createStationsRouter(io: SocketServer) {
   router.delete(
     "/:id",
     requireAuth,
-    requireRoles("Administrator", "Branch Manager", "Supervisor"),
+    requireRoles("Administrator", "Manager", "Branch Manager", "Supervisor"),
     async (req: AuthedRequest, res) => {
       const station = await Station.findById(req.params.id);
       if (!station) {

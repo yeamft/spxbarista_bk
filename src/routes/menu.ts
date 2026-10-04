@@ -34,7 +34,7 @@ function serialize(item: {
   };
 }
 
-const MANAGER_ROLES = ["Administrator", "Branch Manager", "Supervisor"] as const;
+const MANAGER_ROLES = ["Administrator", "Manager", "Branch Manager", "Supervisor"] as const;
 
 export function createMenuRouter(io: SocketServer) {
   const router = Router();

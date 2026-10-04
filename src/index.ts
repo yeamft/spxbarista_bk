@@ -10,6 +10,8 @@ import { createMenuRouter } from "./routes/menu.js";
 import { createCategoriesRouter } from "./routes/categories.js";
 import { createBaristaRouter } from "./routes/barista.js";
 import { staffRouter } from "./routes/staff.js";
+import { moduleRecordsRouter } from "./routes/module-records.js";
+import { settingsRouter } from "./routes/settings.js";
 import { createSocketServer } from "./socket.js";
 
 async function main() {
@@ -65,6 +67,8 @@ async function main() {
   app.use("/api/stations", createStationsRouter(io));
   app.use("/api/menu", createMenuRouter(io));
   app.use("/api/categories", createCategoriesRouter(io));
+  app.use("/api/modules", moduleRecordsRouter);
+  app.use("/api/settings", settingsRouter);
 
   app.use((err: unknown, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
     console.error(err);

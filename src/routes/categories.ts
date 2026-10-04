@@ -18,7 +18,7 @@ function serialize(category: {
   };
 }
 
-const MANAGER_ROLES = ["Administrator", "Branch Manager", "Supervisor"] as const;
+const MANAGER_ROLES = ["Administrator", "Manager", "Branch Manager", "Supervisor"] as const;
 
 export function createCategoriesRouter(io: SocketServer) {
   const router = Router();
