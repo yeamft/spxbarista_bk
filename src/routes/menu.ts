@@ -17,6 +17,7 @@ function serialize(item: {
   unitLabel: string;
   available: boolean;
   active: boolean;
+  // ds
 }) {
   return {
     id: item.itemId,

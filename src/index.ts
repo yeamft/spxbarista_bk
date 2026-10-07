@@ -3,6 +3,7 @@ import cors from "cors";
 import express from "express";
 import { config } from "./config.js";
 import { connectMongo } from "./db.js";
+import { ensureBaristaPinUsers } from "./ensure-baristas.js";
 import { authRouter } from "./routes/auth.js";
 import { createOrdersRouter } from "./routes/orders.js";
 import { createStationsRouter } from "./routes/stations.js";
@@ -17,6 +18,7 @@ import { createSocketServer } from "./socket.js";
 
 async function main() {
   await connectMongo();
+  await ensureBaristaPinUsers();
 
   const app = express();
   const server = http.createServer(app);

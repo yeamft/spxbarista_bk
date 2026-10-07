@@ -14,7 +14,7 @@ export type AuthedRequest = Request & {
   auth?: AuthPayload;
 };
 
-export function signToken(user: UserDoc) {
+export function signToken(user: { _id: unknown; role: string; name: string }) {
   const payload: AuthPayload = {
     sub: String(user._id),
     role: user.role,

@@ -1,4 +1,5 @@
 import { Router } from "express";
+import bcrypt from "bcryptjs";
 import { z } from "zod";
 import {
   hashPassword,
@@ -23,23 +24,47 @@ authRouter.post("/login", async (req, res) => {
     return;
   }
 
-  const login = parsed.data.login.trim().toLowerCase();
+  const login = parsed.data.login.trim();
   const password = parsed.data.password.trim();
+  const pin = isValidStaffPin(password) ? password : isValidStaffPin(login) ? login : "";
 
-  const user = await User.findOne({
-    $or: [{ email: login }, { username: login }, { pin: password }],
-    active: true,
-  });
+  let user = pin
+    ? await User.findOne({
+        active: true,
+        $or: [{ pin }, { username: pin.toLowerCase() }],
+      })
+    : null;
 
-  if (!user || !(await user.verifyPassword(password))) {
+  if (!user) {
+    const key = login.toLowerCase();
+    user = await User.findOne({
+      active: true,
+      $or: [{ email: key }, { username: key }],
+    });
+  }
+
+  if (!user) {
     res.status(401).json({ error: "Invalid credentials" });
     return;
   }
 
-  // Keep pin field in sync for older seeded rows.
-  if (isValidStaffPin(password) && user.pin !== password) {
-    user.pin = password;
-    if (!user.username) user.username = password;
+  let hashOk = false;
+  try {
+    hashOk = Boolean(user.passwordHash) && (await bcrypt.compare(password, user.passwordHash));
+  } catch {
+    hashOk = false;
+  }
+  const pinOk = Boolean(pin) && (user.pin === pin || user.username === pin);
+
+  if (!hashOk && !pinOk) {
+    res.status(401).json({ error: "Invalid credentials" });
+    return;
+  }
+
+  if (pin && (user.pin !== pin || user.username !== pin || !hashOk)) {
+    user.pin = pin;
+    user.username = pin;
+    if (!hashOk) user.passwordHash = await hashPassword(pin);
     await user.save();
   }
 

@@ -48,7 +48,7 @@ userSchema.methods.verifyPassword = async function verifyPassword(password: stri
 
 export type UserDoc = InferSchemaType<typeof userSchema> & {
   _id: mongoose.Types.ObjectId;
-  verifyPassword: (password: string) => Promise<boolean>;
+  verifyPassword?: (password: string) => Promise<boolean>;
 };
 
 export const User = mongoose.model("User", userSchema);

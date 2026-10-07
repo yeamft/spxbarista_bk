@@ -73,7 +73,7 @@ function emitOrderRealtime(
 export function createGuestOrdersRouter(io: SocketServer) {
   const router = Router();
 
-  router.get("/", requireAuth, async (_req, res) => {
+  router.get("/", async (_req, res) => {
     const docs = await GuestOrder.find().sort({ createdAtIso: -1 }).limit(100).lean();
     res.json({
       requests: docs.map((doc) =>
