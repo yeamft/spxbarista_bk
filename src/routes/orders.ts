@@ -4,6 +4,7 @@ import { Order } from "../models/Order.js";
 import { requireAuth, type AuthedRequest } from "../middleware/auth.js";
 import type { Server as SocketServer } from "socket.io";
 import type { OrdersPatchEvent, OrdersSocketEvent } from "../socket.js";
+import { asyncHandler, isDuplicateKeyError } from "../lib/async-handler.js";
 import { notifyOrderChange } from "../lib/web-push.js";
 
 function orderFromDoc(order: {
@@ -89,7 +90,7 @@ function emitOrderRealtime(
 export function createOrdersRouter(io: SocketServer) {
   const router = Router();
 
-  router.get("/", requireAuth, async (req, res) => {
+  router.get("/", requireAuth, asyncHandler(async (req, res) => {
     const pageRaw = req.query.page;
     const pageSizeRaw = req.query.pageSize ?? req.query.limit;
     const paginate = pageRaw != null || pageSizeRaw != null;
@@ -130,9 +131,9 @@ export function createOrdersRouter(io: SocketServer) {
       page,
       pageSize,
     });
-  });
+  }));
 
-  router.get("/:id", requireAuth, async (req, res) => {
+  router.get("/:id", requireAuth, asyncHandler(async (req, res) => {
     const byMongo = await Order.findById(req.params.id).lean();
     if (byMongo) {
       res.json(orderFromDoc(byMongo));
@@ -144,7 +145,7 @@ export function createOrdersRouter(io: SocketServer) {
       return;
     }
     res.json(orderFromDoc(byClient));
-  });
+  }));
 
   const upsertSchema = z.object({
     id: z.string().optional(),
@@ -175,10 +176,6 @@ export function createOrdersRouter(io: SocketServer) {
       (typeof raw.id === "string" && raw.id) ||
       undefined;
 
-    const previous =
-      (clientId ? await Order.findOne({ "raw.id": clientId }).lean() : null) ||
-      (await Order.findOne({ orderNo: data.orderNo }).lean());
-
     const fields = {
       orderNo: data.orderNo,
       status: data.status,
@@ -195,9 +192,39 @@ export function createOrdersRouter(io: SocketServer) {
       raw,
     };
 
-    const order =
-      (previous ? await Order.findByIdAndUpdate(previous._id, fields, { new: true }) : null) ??
-      (await Order.create(fields));
+    // Identity is the client order id only — never match by orderNo, or two
+    // people ordering at the same moment can overwrite each other.
+    if (!clientId) {
+      const created = await Order.create(fields);
+      void notifyOrderChange({
+        previousRaw: null,
+        previousStatus: undefined,
+        nextRaw: created.raw ?? created,
+        nextStatus: created.status,
+        orderNo: created.orderNo,
+        actor,
+      });
+      return created;
+    }
+
+    const filter = { "raw.id": clientId };
+    const previous = await Order.findOne(filter).lean();
+
+    let order;
+    try {
+      order = await Order.findOneAndUpdate(filter, { $set: fields }, {
+        new: true,
+        upsert: true,
+        setDefaultsOnInsert: true,
+      });
+    } catch (error) {
+      if (!isDuplicateKeyError(error)) throw error;
+      order = await Order.findOneAndUpdate(filter, { $set: fields }, { new: true });
+    }
+
+    if (!order) {
+      throw new Error("Could not save order");
+    }
 
     void notifyOrderChange({
       previousRaw: previous?.raw ?? previous,
@@ -211,7 +238,7 @@ export function createOrdersRouter(io: SocketServer) {
     return order;
   }
 
-  router.post("/", requireAuth, async (req: AuthedRequest, res) => {
+  router.post("/", requireAuth, asyncHandler(async (req: AuthedRequest, res) => {
     const parsed = upsertSchema.safeParse(req.body);
     if (!parsed.success) {
       res.status(400).json({ error: "Invalid order payload" });
@@ -232,35 +259,36 @@ export function createOrdersRouter(io: SocketServer) {
     });
 
     res.status(201).json({ id: clientId, order: shaped });
-  });
+  }));
 
-  router.post("/bulk", requireAuth, async (req: AuthedRequest, res) => {
+  router.post("/bulk", requireAuth, asyncHandler(async (req: AuthedRequest, res) => {
     const parsed = z.object({ orders: z.array(upsertSchema) }).safeParse(req.body);
     if (!parsed.success) {
       res.status(400).json({ error: "Invalid bulk order payload" });
       return;
     }
 
-    const results = [];
-    for (const row of parsed.data.orders) {
-      const order = await upsertOrder(row, req.user?.name);
-      const shaped = orderFromDoc(order);
-      const clientId = String(shaped.id);
-      emitOrderRealtime(io, {
-        type: row.eventType || "order:updated",
-        order: shaped,
-        orderId: clientId,
-        orderNo: order.orderNo,
-        message: row.message || `Order ${order.orderNo} synced`,
-        actor: req.user?.name,
-      });
-      results.push(shaped);
-    }
+    const results = await Promise.all(
+      parsed.data.orders.map(async (row) => {
+        const order = await upsertOrder(row, req.user?.name);
+        const shaped = orderFromDoc(order);
+        const clientId = String(shaped.id);
+        emitOrderRealtime(io, {
+          type: row.eventType || "order:updated",
+          order: shaped,
+          orderId: clientId,
+          orderNo: order.orderNo,
+          message: row.message || `Order ${order.orderNo} synced`,
+          actor: req.user?.name,
+        });
+        return shaped;
+      }),
+    );
 
     res.json({ orders: results });
-  });
+  }));
 
-  router.patch("/:id", requireAuth, async (req: AuthedRequest, res) => {
+  router.patch("/:id", requireAuth, asyncHandler(async (req: AuthedRequest, res) => {
     const parsed = upsertSchema.partial().extend({ orderNo: z.string().min(1).optional() }).safeParse(req.body);
     if (!parsed.success) {
       res.status(400).json({ error: "Invalid order payload" });
@@ -269,18 +297,23 @@ export function createOrdersRouter(io: SocketServer) {
 
     const existing =
       (await Order.findById(req.params.id)) ||
-      (await Order.findOne({ "raw.id": req.params.id })) ||
-      (await Order.findOne({ orderNo: req.params.id }));
+      (await Order.findOne({ "raw.id": req.params.id }));
 
     if (!existing) {
       res.status(404).json({ error: "Order not found" });
       return;
     }
 
+    const existingRaw =
+      existing.raw && typeof existing.raw === "object"
+        ? (existing.raw as Record<string, unknown>)
+        : {};
+    const existingClientId = typeof existingRaw.id === "string" ? existingRaw.id : "";
+
     const data = {
       ...parsed.data,
       orderNo: parsed.data.orderNo || existing.orderNo,
-      id: req.params.id,
+      id: existingClientId || req.params.id,
       raw: parsed.data.raw ?? existing.raw,
     };
     const order = await upsertOrder(data as z.infer<typeof upsertSchema>, req.user?.name);
@@ -297,7 +330,7 @@ export function createOrdersRouter(io: SocketServer) {
     });
 
     res.json({ id: clientId, order: shaped });
-  });
+  }));
 
   return router;
 }

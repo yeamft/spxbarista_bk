@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { Router } from "express";
 import { z } from "zod";
 import type { Server as SocketServer } from "socket.io";
@@ -6,6 +7,7 @@ import { GuestOrder, toGuestOrderDto } from "../models/GuestOrder.js";
 import { Order } from "../models/Order.js";
 import { requireAuth, type AuthedRequest } from "../middleware/auth.js";
 import type { OrdersPatchEvent, OrdersSocketEvent } from "../socket.js";
+import { asyncHandler } from "../lib/async-handler.js";
 
 const lineSchema = z.object({
   id: z.string().trim().min(1),
@@ -73,7 +75,7 @@ function emitOrderRealtime(
 export function createGuestOrdersRouter(io: SocketServer) {
   const router = Router();
 
-  router.get("/", async (_req, res) => {
+  router.get("/", asyncHandler(async (_req, res) => {
     const docs = await GuestOrder.find().sort({ createdAtIso: -1 }).limit(100).lean();
     res.json({
       requests: docs.map((doc) =>
@@ -83,9 +85,9 @@ export function createGuestOrdersRouter(io: SocketServer) {
         }),
       ),
     });
-  });
+  }));
 
-  router.post("/", async (req, res) => {
+  router.post("/", asyncHandler(async (req, res) => {
     const parsed = createSchema.safeParse(req.body);
     if (!parsed.success) {
       res.status(400).json({ error: "Invalid guest order payload" });
@@ -103,7 +105,7 @@ export function createGuestOrdersRouter(io: SocketServer) {
     const area = parsed.data.area.trim();
     const tableNumber = (parsed.data.tableNumber || area).trim();
     const requestedBy = parsed.data.requestedBy?.trim() || "Guest";
-    const requestId = parsed.data.id?.trim() || `guest-${Date.now()}`;
+    const requestId = parsed.data.id?.trim() || `guest-${randomUUID()}`;
     const createdAtIso = new Date().toISOString();
     const sentAt = clockLabel();
 
@@ -157,8 +159,8 @@ export function createGuestOrdersRouter(io: SocketServer) {
       })),
     }));
 
-    const orderId = `ord-guest-${Date.now()}`;
-    const orderNo = `G-${String(Date.now()).slice(-6)}`;
+    const orderId = `ord-guest-${randomUUID()}`;
+    const orderNo = `G-${Date.now().toString(36).toUpperCase()}-${randomUUID().slice(0, 6).toUpperCase()}`;
 
     const rawOrder = {
       id: orderId,
@@ -227,7 +229,7 @@ export function createGuestOrdersRouter(io: SocketServer) {
     );
 
     await Order.findOneAndUpdate(
-      { $or: [{ "raw.id": orderId }, { orderNo }] },
+      { "raw.id": orderId },
       {
         orderNo,
         status: "NEW",
@@ -257,9 +259,9 @@ export function createGuestOrdersRouter(io: SocketServer) {
     io.emit("guest-orders:created", { request, order: rawOrder, at: createdAtIso });
 
     res.status(201).json({ request, order: rawOrder });
-  });
+  }));
 
-  router.patch("/:id", requireAuth, async (req: AuthedRequest, res) => {
+  router.patch("/:id", requireAuth, asyncHandler(async (req: AuthedRequest, res) => {
     const parsed = z
       .object({
         status: z.enum(["QR_GENERATED", "SENT_TO_WAITER", "IMPORTED", "SENT_TO_CASHIER"]),
@@ -282,7 +284,7 @@ export function createGuestOrdersRouter(io: SocketServer) {
     const request = toGuestOrderDto(doc);
     io.emit("guest-orders:updated", { request, at: new Date().toISOString() });
     res.json({ request });
-  });
+  }));
 
   return router;
 }

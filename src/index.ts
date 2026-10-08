@@ -12,7 +12,7 @@ import { createMenuRouter } from "./routes/menu.js";
 import { createCategoriesRouter } from "./routes/categories.js";
 import { createBaristaRouter } from "./routes/barista.js";
 import { staffRouter } from "./routes/staff.js";
-import { moduleRecordsRouter } from "./routes/module-records.js";
+import { createModuleRecordsRouter } from "./routes/module-records.js";
 import { settingsRouter } from "./routes/settings.js";
 import { createGuestOrdersRouter } from "./routes/guest-orders.js";
 import { createPushRouter } from "./routes/push.js";
@@ -26,6 +26,8 @@ async function main() {
 
   const app = express();
   const server = http.createServer(app);
+  server.keepAliveTimeout = 65_000;
+  server.headersTimeout = 66_000;
   const io = createSocketServer(server);
 
   app.set("trust proxy", 1);
@@ -76,7 +78,7 @@ async function main() {
   app.use("/api/stations", createStationsRouter(io));
   app.use("/api/menu", createMenuRouter(io));
   app.use("/api/categories", createCategoriesRouter(io));
-  app.use("/api/modules", moduleRecordsRouter);
+  app.use("/api/modules", createModuleRecordsRouter(io));
   app.use("/api/settings", settingsRouter);
 
   app.use((err: unknown, _req: express.Request, res: express.Response, _next: express.NextFunction) => {

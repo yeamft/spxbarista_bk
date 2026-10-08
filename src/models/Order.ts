@@ -31,6 +31,9 @@ const orderSchema = new Schema(
   { timestamps: true },
 );
 
+orderSchema.index({ "raw.id": 1 }, { unique: true, sparse: true });
+orderSchema.index({ createdAt: -1 });
+
 export type OrderDoc = InferSchemaType<typeof orderSchema> & {
   _id: mongoose.Types.ObjectId;
 };

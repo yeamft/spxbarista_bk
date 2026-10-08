@@ -12,7 +12,7 @@ const webpush = require("web-push") as {
   sendNotification: (
     subscription: { endpoint: string; keys: { p256dh: string; auth: string } },
     payload: string,
-    options?: { TTL?: number; urgency?: string },
+    options?: { TTL?: number; urgency?: string; topic?: string },
   ) => Promise<unknown>;
 };
 
@@ -21,6 +21,8 @@ export type PushPayload = {
   body: string;
   url?: string;
   tag?: string;
+  kind?: "call" | "order" | "info";
+  callId?: string;
 };
 
 type VapidKeys = { publicKey: string; privateKey: string };
@@ -105,11 +107,14 @@ export async function sendWebPush(
 
   const excluded = new Set((options.excludeNames ?? []).map(nameKey).filter(Boolean));
   const rows = await PushSubscription.find(filter).lean();
+  const isCall = payload.kind === "call";
   const body = JSON.stringify({
     title: payload.title,
     body: payload.body,
     url: payload.url || "/app",
-    tag: payload.tag || "spx-cafe",
+    tag: payload.tag || (isCall ? "barista-incoming-call" : "spx-cafe"),
+    kind: payload.kind || "info",
+    callId: payload.callId,
   });
 
   await Promise.all(
@@ -122,7 +127,9 @@ export async function sendWebPush(
             keys: { p256dh: row.p256dh, auth: row.auth },
           },
           body,
-          { TTL: 60 * 30, urgency: "high" },
+          isCall
+            ? { TTL: 120, urgency: "high", topic: "barista-call" }
+            : { TTL: 60 * 30, urgency: "high" },
         );
       } catch (error) {
         const status = (error as { statusCode?: number }).statusCode;
@@ -146,6 +153,7 @@ type OrderLike = {
   orderNo?: unknown;
   items?: unknown;
   stationTickets?: unknown;
+  cafeUsual?: unknown;
 };
 
 function asRecord(value: unknown): OrderLike {
@@ -185,6 +193,10 @@ function orderGuestName(raw: OrderLike) {
 }
 
 function itemsLabel(raw: OrderLike) {
+  if (raw.cafeUsual) {
+    const who = String(raw.customerName || raw.orderedByWaiter || raw.waiter || "Guest").trim() || "Guest";
+    return `${who}'s orders`;
+  }
   const items = Array.isArray(raw.items) ? raw.items : [];
   return items
     .slice(0, 3)

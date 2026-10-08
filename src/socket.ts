@@ -46,6 +46,11 @@ export function createSocketServer(httpServer: HttpServer) {
     transports: ["websocket", "polling"],
     pingInterval: 20_000,
     pingTimeout: 25_000,
+    connectionStateRecovery: {
+      maxDisconnectionDuration: 2 * 60 * 1000,
+      skipMiddlewares: true,
+    },
+    maxHttpBufferSize: 1e6,
   });
 
   io.use((socket, next) => {

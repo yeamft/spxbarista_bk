@@ -17,7 +17,7 @@ const OFFICE_STATIONS = [
 
 const ALL_STATIONS = [STATION, ...OFFICE_STATIONS] as const;
 
-const CATEGORIES = ["Coffee", "Tea"] as const;
+const CATEGORIES = ["Coffee", "Tea", "Water"] as const;
 
 const MENU = [
   { id: "espresso", name_en: "Espresso", name_am: "ኤስፕሬሶ", category: "Coffee", price: 80, emoji: "E", unitLabel: "Cup" },
@@ -32,6 +32,10 @@ const MENU = [
   { id: "v60", name_en: "V60", name_am: "ቪ60", category: "Coffee", price: 120, emoji: "V", unitLabel: "Cup" },
   { id: "chmix", name_en: "Chmix", name_am: "ችሚክስ", category: "Coffee", price: 120, emoji: "C", unitLabel: "Cup" },
   { id: "tea", name_en: "Tea", name_am: "ሻይ", category: "Tea", price: 60, emoji: "T", unitLabel: "Cup" },
+  { id: "water", name_en: "Water", name_am: "ውሃ", category: "Water", price: 20, emoji: "W", unitLabel: "Bottle" },
+  { id: "water-half", name_en: "Water Half", name_am: "ግማሽ ውሃ", category: "Water", price: 20, emoji: "WH", unitLabel: "Half" },
+  { id: "water-1l", name_en: "Water 1 Liter", name_am: "1 ሊትር ውሃ", category: "Water", price: 30, emoji: "W1", unitLabel: "1 L" },
+  { id: "water-jug", name_en: "Water Jug", name_am: "የውሃ ጃግ", category: "Water", price: 50, emoji: "WJ", unitLabel: "Jug" },
 ] as const;
 
 /** Seed default offices if missing. Never hide or overwrite admin-added stations. */

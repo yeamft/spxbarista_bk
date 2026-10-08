@@ -4,6 +4,7 @@ import type { Server as SocketServer } from "socket.io";
 import { BaristaShift, toBaristaShiftDto } from "../models/BaristaShift.js";
 import { BaristaCall, toBaristaCallDto } from "../models/BaristaCall.js";
 import { requireAuth, type AuthedRequest } from "../middleware/auth.js";
+import { asyncHandler } from "../lib/async-handler.js";
 import { sendWebPush } from "../lib/web-push.js";
 
 async function listShifts() {
@@ -39,7 +40,7 @@ async function listActiveCalls() {
 export function createBaristaRouter(io: SocketServer) {
   const router = Router();
 
-  router.get("/availability", async (_req, res) => {
+  router.get("/availability", asyncHandler(async (_req, res) => {
     const available = await onDuty();
     const shifts = await listShifts();
     res.json({
@@ -47,9 +48,9 @@ export function createBaristaRouter(io: SocketServer) {
       shifts,
       anyOnDuty: available.length > 0,
     });
-  });
+  }));
 
-  router.post("/clock-in", async (req, res) => {
+  router.post("/clock-in", asyncHandler(async (req, res) => {
     const parsed = z
       .object({
         baristaId: z.string().trim().min(1),
@@ -82,9 +83,9 @@ export function createBaristaRouter(io: SocketServer) {
       anyOnDuty: true,
     });
     res.json({ shift, available, anyOnDuty: true });
-  });
+  }));
 
-  router.post("/clock-out", async (req, res) => {
+  router.post("/clock-out", asyncHandler(async (req, res) => {
     const parsed = z
       .object({
         baristaId: z.string().trim().min(1),
@@ -117,14 +118,14 @@ export function createBaristaRouter(io: SocketServer) {
       anyOnDuty: available.length > 0,
     });
     res.json({ shift, available, anyOnDuty: available.length > 0 });
-  });
+  }));
 
-  router.get("/calls", async (_req, res) => {
+  router.get("/calls", asyncHandler(async (_req, res) => {
     const calls = await listActiveCalls();
     res.json({ calls });
-  });
+  }));
 
-  router.post("/calls", requireAuth, async (req: AuthedRequest, res) => {
+  router.post("/calls", requireAuth, asyncHandler(async (req: AuthedRequest, res) => {
     const parsed = z
       .object({
         id: z.string().trim().optional(),
@@ -163,14 +164,16 @@ export function createBaristaRouter(io: SocketServer) {
         title: "Incoming call",
         body: `${call.requestedBy} · ${call.location}`,
         url: "/app",
-        tag: `call-${call.id}`,
+        tag: "barista-incoming-call",
+        kind: "call",
+        callId: call.id,
       },
       call.baristaName ? { names: [call.baristaName] } : { roles: ["Barista"] },
     );
     res.status(201).json({ call });
-  });
+  }));
 
-  router.patch("/calls/:id", async (req, res) => {
+  router.patch("/calls/:id", asyncHandler(async (req, res) => {
     const parsed = z
       .object({
         status: z.enum(["open", "acknowledged", "done"]),
@@ -221,7 +224,7 @@ export function createBaristaRouter(io: SocketServer) {
       );
     }
     res.json({ call });
-  });
+  }));
 
   return router;
 }

@@ -23,6 +23,17 @@ export function signToken(user: { _id: unknown; role: string; name: string }) {
   return jwt.sign(payload, config.jwtSecret, { expiresIn: "7d" });
 }
 
+const userCache = new Map<string, { user: UserDoc; at: number }>();
+const AUTH_CACHE_MS = 20_000;
+
+export function invalidateAuthCache(userId?: string) {
+  if (userId) {
+    userCache.delete(userId);
+    return;
+  }
+  userCache.clear();
+}
+
 export async function requireAuth(req: AuthedRequest, res: Response, next: NextFunction) {
   try {
     const header = req.headers.authorization || "";
@@ -32,11 +43,17 @@ export async function requireAuth(req: AuthedRequest, res: Response, next: NextF
       return;
     }
     const decoded = jwt.verify(token, config.jwtSecret) as AuthPayload;
-    const user = await User.findById(decoded.sub);
+    const cached = userCache.get(decoded.sub);
+    const user =
+      cached && Date.now() - cached.at < AUTH_CACHE_MS
+        ? cached.user
+        : await User.findById(decoded.sub);
     if (!user || !user.active) {
+      userCache.delete(decoded.sub);
       res.status(401).json({ error: "Unauthorized" });
       return;
     }
+    userCache.set(decoded.sub, { user, at: Date.now() });
     req.auth = decoded;
     req.user = user;
     next();
