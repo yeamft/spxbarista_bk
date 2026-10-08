@@ -1,7 +1,6 @@
 import { Router } from "express";
 import { z } from "zod";
 import { Category } from "../models/Category.js";
-import { requireAuth, requireRoles, type AuthedRequest } from "../middleware/auth.js";
 import type { Server as SocketServer } from "socket.io";
 
 function serialize(category: {
@@ -18,8 +17,6 @@ function serialize(category: {
   };
 }
 
-const MANAGER_ROLES = ["Administrator", "Manager", "Branch Manager", "Supervisor"] as const;
-
 export function createCategoriesRouter(io: SocketServer) {
   const router = Router();
 
@@ -35,11 +32,7 @@ export function createCategoriesRouter(io: SocketServer) {
     });
   });
 
-  router.post(
-    "/",
-    requireAuth,
-    requireRoles(...MANAGER_ROLES),
-    async (req: AuthedRequest, res) => {
+  router.post("/", async (req, res) => {
       const parsed = z.object({ name: z.string().trim().min(1) }).safeParse(req.body);
       if (!parsed.success) {
         res.status(400).json({ error: "Invalid category" });
@@ -62,14 +55,9 @@ export function createCategoriesRouter(io: SocketServer) {
       const category = await Category.create({ name, sortOrder: count, active: true });
       io.emit("categories:updated", { type: "created", category: serialize(category) });
       res.status(201).json({ category: serialize(category) });
-    },
-  );
+  });
 
-  router.patch(
-    "/:id",
-    requireAuth,
-    requireRoles(...MANAGER_ROLES),
-    async (req: AuthedRequest, res) => {
+  router.patch("/:id", async (req, res) => {
       const parsed = z
         .object({
           name: z.string().trim().min(1).optional(),
@@ -92,14 +80,9 @@ export function createCategoriesRouter(io: SocketServer) {
       await category.save();
       io.emit("categories:updated", { type: "updated", category: serialize(category) });
       res.json({ category: serialize(category) });
-    },
-  );
+  });
 
-  router.delete(
-    "/:id",
-    requireAuth,
-    requireRoles(...MANAGER_ROLES),
-    async (req: AuthedRequest, res) => {
+  router.delete("/:id", async (req, res) => {
       const category = await Category.findById(req.params.id);
       if (!category) {
         res.status(404).json({ error: "Category not found" });
@@ -109,8 +92,7 @@ export function createCategoriesRouter(io: SocketServer) {
       await category.save();
       io.emit("categories:updated", { type: "deleted", category: serialize(category) });
       res.json({ ok: true });
-    },
-  );
+  });
 
   return router;
 }

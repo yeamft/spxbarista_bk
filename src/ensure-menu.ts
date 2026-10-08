@@ -34,66 +34,64 @@ const MENU = [
   { id: "tea", name_en: "Tea", name_am: "ሻይ", category: "Tea", price: 60, emoji: "T", unitLabel: "Cup" },
 ] as const;
 
-/** Seed office delivery points and hide leftover restaurant stations. */
+/** Seed default offices if missing. Never hide or overwrite admin-added stations. */
 export async function ensureCoffeeStations() {
+  let created = 0;
   for (let i = 0; i < ALL_STATIONS.length; i += 1) {
     const name = ALL_STATIONS[i]!;
-    await Station.findOneAndUpdate(
+    const result = await Station.updateOne(
       { name },
-      { name, active: true, sortOrder: i },
-      { upsert: true, new: true },
+      { $setOnInsert: { name, active: true, sortOrder: i } },
+      { upsert: true },
     );
+    if (result.upsertedCount) created += 1;
   }
-  const hidden = await Station.updateMany(
-    { name: { $nin: [...ALL_STATIONS] } },
-    { active: false },
-  );
-  console.log(
-    `[api] stations ready ${ALL_STATIONS.length}` +
-      (hidden.modifiedCount ? `, hid ${hidden.modifiedCount} extra stations` : ""),
-  );
+  const active = await Station.countDocuments({ active: true });
+  console.log(`[api] stations ready ${active}` + (created ? `, seeded ${created}` : ""));
 }
 
-/** Keep Mongo menu limited to the coffee-office drinks list. */
+/** Seed default drinks if missing. Never hide or overwrite admin menu edits. */
 export async function ensureCoffeeMenu() {
-  const keepIds = MENU.map((row) => row.id);
-
+  let createdCategories = 0;
   for (let i = 0; i < CATEGORIES.length; i += 1) {
     const name = CATEGORIES[i]!;
-    await Category.findOneAndUpdate(
+    const result = await Category.updateOne(
       { name },
-      { name, active: true, sortOrder: i },
-      { upsert: true, new: true },
+      { $setOnInsert: { name, active: true, sortOrder: i } },
+      { upsert: true },
     );
+    if (result.upsertedCount) createdCategories += 1;
   }
-  await Category.updateMany({ name: { $nin: [...CATEGORIES] } }, { active: false });
 
+  let createdItems = 0;
   for (const row of MENU) {
-    await MenuItem.findOneAndUpdate(
+    const result = await MenuItem.updateOne(
       { itemId: row.id },
       {
-        itemId: row.id,
-        name_en: row.name_en,
-        name_am: row.name_am,
-        category: row.category,
-        price: row.price,
-        cost: 0,
-        station: STATION,
-        emoji: row.emoji,
-        unitLabel: row.unitLabel,
-        available: true,
-        active: true,
+        $setOnInsert: {
+          itemId: row.id,
+          name_en: row.name_en,
+          name_am: row.name_am,
+          category: row.category,
+          price: row.price,
+          cost: 0,
+          station: STATION,
+          emoji: row.emoji,
+          unitLabel: row.unitLabel,
+          available: true,
+          active: true,
+        },
       },
-      { upsert: true, new: true },
+      { upsert: true },
     );
+    if (result.upsertedCount) createdItems += 1;
   }
 
-  const hidden = await MenuItem.updateMany(
-    { itemId: { $nin: keepIds } },
-    { active: false, available: false },
-  );
+  const active = await MenuItem.countDocuments({ active: true });
   console.log(
-    `[api] menu ready ${MENU.length} drinks` +
-      (hidden.modifiedCount ? `, hid ${hidden.modifiedCount} extra items` : ""),
+    `[api] menu ready ${active} drinks` +
+      (createdItems || createdCategories
+        ? `, seeded ${createdItems} items / ${createdCategories} categories`
+        : ""),
   );
 }
