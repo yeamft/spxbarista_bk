@@ -50,13 +50,13 @@ export function createPushRouter() {
     res.json({ ok: true, id: String(doc._id) });
   });
 
-  router.delete("/subscribe", requireAuth, async (req: AuthedRequest, res) => {
-    const endpoint = typeof req.body?.endpoint === "string" ? req.body.endpoint : "";
-    if (endpoint) {
-      await PushSubscription.deleteOne({ endpoint, userId: String(req.user?._id) });
-    } else if (req.user) {
-      await PushSubscription.deleteMany({ userId: String(req.user._id) });
+  router.delete("/subscribe", async (req, res) => {
+    const endpoint = typeof req.body?.endpoint === "string" ? req.body.endpoint.trim() : "";
+    if (!endpoint) {
+      res.status(400).json({ error: "Missing subscription" });
+      return;
     }
+    await PushSubscription.deleteOne({ endpoint });
     res.json({ ok: true });
   });
 

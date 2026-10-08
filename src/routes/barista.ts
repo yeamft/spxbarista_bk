@@ -170,7 +170,7 @@ export function createBaristaRouter(io: SocketServer) {
     res.status(201).json({ call });
   });
 
-  router.patch("/calls/:id", requireAuth, async (req: AuthedRequest, res) => {
+  router.patch("/calls/:id", async (req, res) => {
     const parsed = z
       .object({
         status: z.enum(["open", "acknowledged", "done"]),
@@ -193,7 +193,7 @@ export function createBaristaRouter(io: SocketServer) {
       existing.status = "acknowledged";
       existing.acknowledgedAt = stamp;
       existing.acknowledgedBy =
-        parsed.data.acknowledgedBy?.trim() || req.user?.name || "Barista";
+        parsed.data.acknowledgedBy?.trim() || "Barista";
     } else if (parsed.data.status === "done") {
       existing.status = "done";
     } else {
