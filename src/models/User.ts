@@ -15,12 +15,12 @@ const STAFF_ROLES = [
   "Auditor",
 ] as const;
 
-const PIN_RE = /^\d{2}$/;
+const PIN_RE = /^\d{2}$|^\d{4}$/;
 
 const userSchema = new Schema(
   {
     email: { type: String, trim: true, lowercase: true, sparse: true, unique: true },
-    /** Login handle — for coffee office this is the 2-digit PIN. */
+    /** Login handle — for coffee office this is the 2- or 4-digit PIN. */
     username: { type: String, trim: true, lowercase: true, sparse: true },
     /** Explicit unique PIN (same value as username for coffee office). */
     pin: {
@@ -29,7 +29,7 @@ const userSchema = new Schema(
       sparse: true,
       validate: {
         validator: (value: string | null | undefined) => !value || PIN_RE.test(value),
-        message: "PIN must be exactly 2 digits",
+        message: "PIN must be 2 or 4 digits",
       },
     },
     name: { type: String, required: true, trim: true },

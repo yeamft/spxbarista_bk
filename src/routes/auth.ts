@@ -103,12 +103,12 @@ authRouter.get("/directory", async (_req, res) => {
 
 const registerPinSchema = z.object({
   name: z.string().trim().min(1),
-  pin: z.string().trim().regex(/^\d{2}$/, "PIN must be exactly 2 digits"),
+  pin: z.string().trim().regex(/^\d{2}$|^\d{4}$/, "PIN must be 2 or 4 digits"),
   role: z.string().default("User"),
   branch: z.string().default("Main Office"),
 });
 
-/** Self-serve coffee-office registration (2-digit PIN = login). */
+/** Self-serve coffee-office registration (2- or 4-digit PIN = login). */
 authRouter.post("/register-pin", async (req, res) => {
   const parsed = registerPinSchema.safeParse(req.body);
   if (!parsed.success) {
@@ -165,7 +165,7 @@ const registerSchema = z.object({
   name: z.string().trim().min(1),
   email: z.string().email().optional(),
   username: z.string().trim().min(2).optional(),
-  pin: z.string().trim().regex(/^\d{2}$/).optional(),
+  pin: z.string().trim().regex(/^\d{2}$|^\d{4}$/).optional(),
   password: z.string().min(2),
   role: z.string().default("User"),
   branch: z.string().default("Main Office"),

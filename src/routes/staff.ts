@@ -54,7 +54,7 @@ const updateStaffSchema = z.object({
   name: z.string().trim().min(1),
   role: z.string().optional(),
   branch: z.string().optional(),
-  pin: z.string().trim().regex(/^\d{2}$/, "PIN must be exactly 2 digits").optional(),
+  pin: z.string().trim().regex(/^\d{2}$|^\d{4}$/, "PIN must be 2 or 4 digits").optional(),
 });
 
 staffRouter.patch(
@@ -84,7 +84,7 @@ staffRouter.patch(
 
     if (nextPin && nextPin !== user.pin && nextPin !== user.username) {
       if (!isValidStaffPin(nextPin)) {
-        res.status(400).json({ error: "PIN must be exactly 2 digits" });
+        res.status(400).json({ error: "PIN must be 2 or 4 digits" });
         return;
       }
       const taken = await User.findOne({
