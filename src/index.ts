@@ -4,6 +4,7 @@ import express from "express";
 import { config } from "./config.js";
 import { connectMongo } from "./db.js";
 import { ensureBaristaPinUsers } from "./ensure-baristas.js";
+import { ensureCoffeeMenu, ensureCoffeeStations } from "./ensure-menu.js";
 import { authRouter } from "./routes/auth.js";
 import { createOrdersRouter } from "./routes/orders.js";
 import { createStationsRouter } from "./routes/stations.js";
@@ -14,11 +15,14 @@ import { staffRouter } from "./routes/staff.js";
 import { moduleRecordsRouter } from "./routes/module-records.js";
 import { settingsRouter } from "./routes/settings.js";
 import { createGuestOrdersRouter } from "./routes/guest-orders.js";
+import { createPushRouter } from "./routes/push.js";
 import { createSocketServer } from "./socket.js";
 
 async function main() {
   await connectMongo();
   await ensureBaristaPinUsers();
+  await ensureCoffeeStations();
+  await ensureCoffeeMenu();
 
   const app = express();
   const server = http.createServer(app);
@@ -68,6 +72,7 @@ async function main() {
   app.use("/api/barista", createBaristaRouter(io));
   app.use("/api/orders", createOrdersRouter(io));
   app.use("/api/guest-orders", createGuestOrdersRouter(io));
+  app.use("/api/push", createPushRouter());
   app.use("/api/stations", createStationsRouter(io));
   app.use("/api/menu", createMenuRouter(io));
   app.use("/api/categories", createCategoriesRouter(io));

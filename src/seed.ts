@@ -82,6 +82,7 @@ async function seedStations(stations: string[]) {
     );
     upserts += 1;
   }
+  await Station.updateMany({ name: { $nin: stations } }, { active: false });
   console.log(`[seed] stations upserted: ${upserts}`);
 }
 
@@ -96,10 +97,12 @@ async function seedCategories(categories: string[]) {
     );
     upserts += 1;
   }
+  await Category.updateMany({ name: { $nin: categories } }, { active: false });
   console.log(`[seed] categories upserted: ${upserts}`);
 }
 
 async function seedMenu(items: Catalog["menuItems"]) {
+  const keepIds = items.map((item) => item.id);
   let upserts = 0;
   for (const item of items) {
     await MenuItem.findOneAndUpdate(
@@ -121,7 +124,11 @@ async function seedMenu(items: Catalog["menuItems"]) {
     );
     upserts += 1;
   }
-  console.log(`[seed] menu items upserted: ${upserts}`);
+  const hidden = await MenuItem.updateMany(
+    { itemId: { $nin: keepIds } },
+    { active: false, available: false },
+  );
+  console.log(`[seed] menu items upserted: ${upserts}, hid extras: ${hidden.modifiedCount}`);
 }
 
 async function seed() {

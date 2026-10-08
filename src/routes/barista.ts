@@ -4,6 +4,7 @@ import type { Server as SocketServer } from "socket.io";
 import { BaristaShift, toBaristaShiftDto } from "../models/BaristaShift.js";
 import { BaristaCall, toBaristaCallDto } from "../models/BaristaCall.js";
 import { requireAuth, type AuthedRequest } from "../middleware/auth.js";
+import { sendWebPush } from "../lib/web-push.js";
 
 async function listShifts() {
   const docs = await BaristaShift.find().sort({ updatedAtIso: -1 }).lean();
@@ -157,6 +158,15 @@ export function createBaristaRouter(io: SocketServer) {
 
     const call = toBaristaCallDto(doc);
     io.emit("barista:call", { type: "created", call, at: stamp });
+    void sendWebPush(
+      {
+        title: "Incoming call",
+        body: `${call.requestedBy} · ${call.location}`,
+        url: "/app",
+        tag: `call-${call.id}`,
+      },
+      call.baristaName ? { names: [call.baristaName] } : { roles: ["Barista"] },
+    );
     res.status(201).json({ call });
   });
 
@@ -199,6 +209,17 @@ export function createBaristaRouter(io: SocketServer) {
       call,
       at: stamp,
     });
+    if (parsed.data.status === "acknowledged") {
+      void sendWebPush(
+        {
+          title: "Barista is on the way",
+          body: `${call.acknowledgedBy || "Barista"} accepted your call`,
+          url: "/app",
+          tag: `call-accepted-${call.id}`,
+        },
+        { names: [call.requestedBy], excludeNames: [call.acknowledgedBy || ""] },
+      );
+    }
     res.json({ call });
   });
 

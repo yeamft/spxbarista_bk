@@ -4,6 +4,7 @@ import { Order } from "../models/Order.js";
 import { requireAuth, type AuthedRequest } from "../middleware/auth.js";
 import type { Server as SocketServer } from "socket.io";
 import type { OrdersPatchEvent, OrdersSocketEvent } from "../socket.js";
+import { notifyOrderChange } from "../lib/web-push.js";
 
 function orderFromDoc(order: {
   _id: { toString(): string };
@@ -174,29 +175,38 @@ export function createOrdersRouter(io: SocketServer) {
       (typeof raw.id === "string" && raw.id) ||
       undefined;
 
-    const filter = clientId
-      ? { $or: [{ "raw.id": clientId }, { orderNo: data.orderNo }] }
-      : { orderNo: data.orderNo };
+    const previous =
+      (clientId ? await Order.findOne({ "raw.id": clientId }).lean() : null) ||
+      (await Order.findOne({ orderNo: data.orderNo }).lean());
 
-    const order = await Order.findOneAndUpdate(
-      filter,
-      {
-        orderNo: data.orderNo,
-        status: data.status,
-        paymentStatus: data.paymentStatus,
-        area: data.area,
-        tableNumber: data.tableNumber,
-        barista: data.barista || actor || "",
-        cashier: data.cashier || "",
-        branch: data.branch || "Main Office",
-        items: data.items,
-        subtotal: data.subtotal,
-        total: data.total,
-        notes: data.notes,
-        raw,
-      },
-      { upsert: true, new: true, setDefaultsOnInsert: true },
-    );
+    const fields = {
+      orderNo: data.orderNo,
+      status: data.status,
+      paymentStatus: data.paymentStatus,
+      area: data.area,
+      tableNumber: data.tableNumber,
+      barista: data.barista || actor || "",
+      cashier: data.cashier || "",
+      branch: data.branch || "Main Office",
+      items: data.items,
+      subtotal: data.subtotal,
+      total: data.total,
+      notes: data.notes,
+      raw,
+    };
+
+    const order =
+      (previous ? await Order.findByIdAndUpdate(previous._id, fields, { new: true }) : null) ??
+      (await Order.create(fields));
+
+    void notifyOrderChange({
+      previousRaw: previous?.raw ?? previous,
+      previousStatus: previous?.status,
+      nextRaw: order.raw ?? order,
+      nextStatus: order.status,
+      orderNo: order.orderNo,
+      actor,
+    });
 
     return order;
   }
